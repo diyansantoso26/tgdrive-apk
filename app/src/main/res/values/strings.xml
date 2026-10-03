@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TG Drive</string>
+    <style name="Theme.TGDrive" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0f141b</item>
+        <item name="android:statusBarColor">#0f141b</item>
+        <item name="android:navigationBarColor">#0f141b</item>
+    </style>
+</resources>
