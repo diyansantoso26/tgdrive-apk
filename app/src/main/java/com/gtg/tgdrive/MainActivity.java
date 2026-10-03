@@ -29,6 +29,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 
 /**
  * TG Drive — pembungkus WebView untuk https://drive.gtg.my.id
@@ -101,6 +102,29 @@ public class MainActivity extends Activity {
                     maxSpeedPrompted = true;
                     fetchServerInfo();
                 }
+            }
+            // Link eksternal (wa.me, t.me, dsb) dibuka di aplikasi/browser luar,
+            // supaya tidak macet di dalam WebView.
+            private boolean openExternal(String url) {
+                if (url == null) return false;
+                try {
+                    String host = Uri.parse(url).getHost();
+                    if (host == null) return false;
+                    if (host.endsWith("gtg.my.id")) return false; // tetap di dalam aplikasi
+                    Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(i);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return openExternal(url);
+            }
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                return openExternal(request.getUrl().toString());
             }
         });
 
@@ -260,8 +284,37 @@ public class MainActivity extends Activity {
             path = p.getPath().isEmpty() ? "/drive" : p.getPath();
         } catch (Exception ignored) {}
         maxSpeedPrompted = false; // cek lagi setelah pindah host
-        web.loadUrl(base + path);
-        Toast.makeText(this, "Beralih server…", Toast.LENGTH_SHORT).show();
+        // Handoff: minta token login sekali pakai agar tidak perlu login ulang di server tujuan
+        final String destBase = base, destPath = path;
+        new Thread(() -> {
+            String token = null;
+            try {
+                String cur = currentBase();
+                String cookies = CookieManager.getInstance().getCookie(cur);
+                URL url = new URL(cur + "/api/handoff-token");
+                HttpURLConnection c = (HttpURLConnection) url.openConnection();
+                c.setRequestMethod("POST");
+                c.setConnectTimeout(8000);
+                c.setReadTimeout(8000);
+                if (cookies != null) c.setRequestProperty("Cookie", cookies);
+                if (c.getResponseCode() == 200) {
+                    JSONObject j = new JSONObject(readAll(c.getInputStream()));
+                    token = j.optString("token", null);
+                }
+            } catch (Exception ignored) { /* fallback: pindah biasa */ }
+            final String t = token;
+            runOnUiThread(() -> {
+                if (t != null && !t.isEmpty()) {
+                    try {
+                        web.loadUrl(destBase + "/auth/handoff?token=" + URLEncoder.encode(t, "UTF-8")
+                                + "&next=" + URLEncoder.encode(destPath, "UTF-8"));
+                    } catch (Exception e) { web.loadUrl(destBase + destPath); }
+                } else {
+                    web.loadUrl(destBase + destPath);
+                }
+                Toast.makeText(this, "Beralih server…", Toast.LENGTH_SHORT).show();
+            });
+        }).start();
     }
 
     @Override
