@@ -49,7 +49,7 @@ public class MainActivity extends Activity {
     private String serverDomainUrl = HOME_URL;
     private boolean serverMaxSpeed = false;
     private boolean serverInfoOk = false;
-    private boolean maxSpeedPrompted = false;
+    private boolean serverInfoFetched = false;
 
     private final BroadcastReceiver downloadDone = new BroadcastReceiver() {
         @Override
@@ -97,9 +97,10 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // Setelah login (halaman /drive), cek info server sekali per sesi.
-                if (url != null && url.contains("/drive") && !maxSpeedPrompted) {
-                    maxSpeedPrompted = true;
+                // Setelah login (halaman /drive), ambil info server sekali per sesi
+                // (untuk menu manual "🌐 Server"; popup otomatis Max Speed sudah dihapus).
+                if (url != null && url.contains("/drive") && !serverInfoFetched) {
+                    serverInfoFetched = true;
                     fetchServerInfo();
                 }
             }
@@ -232,7 +233,6 @@ public class MainActivity extends Activity {
                 if (!du.isEmpty()) serverDomainUrl = du;
                 serverMaxSpeed = j.optBoolean("max_speed", false);
                 serverInfoOk = true;
-                runOnUiThread(this::maybeOfferMaxSpeed);
             } catch (Exception ignored) { /* offline: diam saja */ }
         }).start();
     }
@@ -266,24 +266,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Tawarkan pindah ke jalur langsung bila Max Speed aktif tapi masih via domain. */
-    private void maybeOfferMaxSpeed() {
-        if (!serverInfoOk || !serverMaxSpeed || serverDirectUrl.isEmpty() || isOnDirect()) return;
-        new AlertDialog.Builder(this)
-                .setTitle("⚡ Max Speed aktif")
-                .setMessage("Pindah ke jalur langsung (IP publik) untuk kecepatan penuh?")
-                .setPositiveButton("Pindah", (d, w) -> switchServer(serverDirectUrl))
-                .setNegativeButton("Tetap di sini", null)
-                .show();
-    }
-
     private void switchServer(String base) {
         String path = "/drive";
         try {
             URL p = new URL(web.getUrl());
             path = p.getPath().isEmpty() ? "/drive" : p.getPath();
         } catch (Exception ignored) {}
-        maxSpeedPrompted = false; // cek lagi setelah pindah host
+        serverInfoFetched = false; // ambil info server lagi setelah pindah host
         // Handoff: minta token login sekali pakai agar tidak perlu login ulang di server tujuan
         final String destBase = base, destPath = path;
         new Thread(() -> {
