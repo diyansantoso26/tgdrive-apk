@@ -1,0 +1,27 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.gtg.tgdrive'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.gtg.tgdrive'
+        minSdk 26
+        targetSdk 34
+        versionCode 2
+        versionName '1.1'
+    }
+
+    buildTypes {
+        release {
+            // rilis pribadi: tetap bisa dipasang langsung (ditandatangani debug key)
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
